@@ -85,9 +85,9 @@ export const Web3ContextProvider = (props) => {
         crypticVault.abi,
         signer
       );
-      console.log(crypticVaultCon);
+      console.log(crypticVaultCon,"crypticVaultCon");
       let status = await crypticVaultCon.getLoginStatus(accounts[0]);
-      console.log(status);
+      console.log(status,"status");
       if (status) {
         setaLoading(false);
         localStorage.setItem("admin", accounts[0]);

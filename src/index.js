@@ -15,6 +15,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { makeStore } from "./redux/store";
 import { Provider } from "react-redux";
 import { Web3StorageContextProvider } from "./context/Web3Storage";
+import { ChatBoxContext, ChatBoxContextProvider } from "./context/ChatBoxContext";
 // ----------------------------------------------------------------------
 
 ReactDOM.render(
@@ -22,9 +23,11 @@ ReactDOM.render(
     <Provider store={makeStore()}>
       <BrowserRouter>
         <Web3ContextProvider>
+          <ChatBoxContextProvider>
           <Web3StorageContextProvider>
             <App />
           </Web3StorageContextProvider>
+          </ChatBoxContextProvider>
         </Web3ContextProvider>
       </BrowserRouter>
     </Provider>

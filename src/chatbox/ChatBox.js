@@ -3,6 +3,7 @@ import {
     Avatar,
     Box,
     Button,
+    CircularProgress,
     Container,
     Divider,
     Fab,
@@ -19,17 +20,19 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 // import Page from "src/components/Page";
 // import { AppWeeklySales } from "src/sections/@dashboard/app";
 import { makeStyles } from "@mui/styles";
 // import { useMoralis, useMoralisCloudFunction } from "react-moralis";
 import { useParams } from "react-router-dom";
-// import moment from "moment";
-import { identity } from "lodash";
+// import moment from "moment"; 
 import UserList from "./UserList";
 import { Client } from '@xmtp/xmtp-js'
-import { Wallet } from 'ethers'
+import { ChatBoxContext } from "src/context/ChatBoxContext";
+import Blockies from 'react-blockies'
+
+// import { Conversation } from '@xmtp/xmtp-js/dist/types/src/conversations'
 
 
 
@@ -62,29 +65,62 @@ const useStyles = makeStyles({
         borderRadius: "0px 15px 15px 20px",
         background: "#eee",
         padding: "10px",
+        width: '50%',
+        float: 'left',
+        height: 'auto',
+        textAlign: 'left',
     },
     recieveMsgBox: {
         borderRadius: "20px 15px 0 15px",
         background: "aliceblue",
         padding: "10px",
+        width: '50%',
+        float: 'right',
+        height: 'auto',
+        textAlign: 'left',
     },
 });
 
 function ChatBox() {
     const { id } = useParams();
+    const chatboxContext = React.useContext(ChatBoxContext);
+    const {
+        userList,
+        messageList, currentUser, setPeerAddress, handleSend,
+        loading,isUpdate ,updateMessage} = chatboxContext;
+
     const classes = useStyles();
     const [message, setMessage] = useState("");
-    const [isUpdate, setIsUpdate] = useState(false);
-    const [allUser, setAllUser] = useState([]);
-    const [udata, setData] = useState([]);
-    const [handleId, setHandleId] = useState("");
+    const [userId, setUserId] = useState("");
 
     const [open, setOpen] = React.useState(false);
     const [userAddress, setUserAddress] = useState("");
+    const [isSelected, setIsSelected] = useState("")
+    const [userMessage, setUserMessage] = useState("")
 
 
- 
+ const messagesEndRef = useRef(null)
+
+  const scrollToMessagesEndRef = useCallback(() => { 
+      (messagesEndRef.current)?.scrollIntoView({ behavior: 'smooth' })
+  }, [messagesEndRef]) 
    
+
+  const hasMessages = messageList.length > 0
+
+  useEffect(() => {
+    if (!hasMessages) return
+    const initScroll = () => {
+      scrollToMessagesEndRef()
+    }
+    initScroll()
+  }, [currentUser, hasMessages, scrollToMessagesEndRef,updateMessage])
+
+
+
+    // useEffect(()=>{
+    //         console.log(messageList,"messageList");
+    // },[messageList])
 
     const handleClickOpen = () => {
         setOpen(true);
@@ -94,18 +130,33 @@ function ChatBox() {
         setOpen(false);
     };
 
-    const handleAddUser = async() => {
-        const wallet = Wallet.createRandom();
-        const xmtp = await Client.create(wallet)
-        console.log(userAddress, "userAddress");
-        const conversation = await xmtp.conversations.newConversation(userAddress);
-        console.log(conversation,"conversation");
+    const handleAddUser = async () => {
+        setPeerAddress(userAddress);
+        setOpen(false); 
     }
 
+    const chatUser = async (e) => {
+        setPeerAddress(e)
+        setUserId(e);
+        setIsSelected(e);
+    }
 
+    async function sendMessage() { 
+            handleSend(message); 
+            setMessage("");
+        } 
+    
+
+    const formatDate = (date) =>
+        date?.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+    const shortAddress = (addr) =>
+        addr.length > 10 && addr.startsWith('0x')
+            ? `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`
+            : addr
 
     return (
-        <Container maxWidth="xl"> 
+        <Container maxWidth="xl">
             <Dialog open={open}
                 onClose={handleClose}
                 fullWidth="fullWidth"
@@ -134,21 +185,20 @@ function ChatBox() {
             </Dialog>
 
 
-            <Box sx={{ pb: 2 }}>
+            <Box sx={{ pb: 2, display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="h4" component="h2">Messages</Typography>
+                <Button onClick={handleClickOpen} variant="contained" color="primary">Add New User</Button>
             </Box>
             <Grid container className={classes.chatSection}>
                 <Grid item xs={3} className={classes.borderRight500}>
                     <List >
-                        <ListItem button key="RemySharp" onClick={handleClickOpen}>
+                        <ListItem button key="RemySharp" >
                             <ListItemIcon>
-                                <Avatar
-                                    // alt={user ? user.attributes.username : "user"}
-                                    src={"/images/lg.png"}
-                                />
+                                <Blockies seed={currentUser} size={10} className="rounded-full" style={{ borderRadius: '50%' }} />
                             </ListItemIcon>
                             <ListItemText
-                                primary={"username"}
+                                style={{ border: '1px solid #eee', padding: '3px 15px', borderRadius: '20px', fontWeight: 'bolder' }}
+                                primary={shortAddress(currentUser)}
                             ></ListItemText>
                         </ListItem>
 
@@ -163,49 +213,63 @@ function ChatBox() {
                         />
                     </Grid>
                     <Divider />
-                    <List>
-                        <UserList />
-                    </List>
+                    <UserList isSelected={isSelected} list={userList && userList} chatUser={chatUser} load={loading} />
                 </Grid>
                 <Grid item xs={9}>
                     <List className={classes.messageArea}>
-                        {/* {udata &&
-                handleId !== "" &&
-                udata
-                  .sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1))
-                  .map((msg) => {
-                    return ( */}
-                        <ListItem  >
-                            <Grid container>
-                                <Grid item xs={12}>
-                                    <ListItemText
-                                        className={
-                                            // handleId == msg.reciever &&
-                                            // user?.id == msg.sender.objectId
-                                            //   ? classes.recieveMsgBox
-                                            classes.senderMsgBox
-                                        }
-                                        align={
-                                            "right"
-                                        }
-                                    //   primary={msg.text}
-                                    ></ListItemText>
-                                </Grid>
-                                <Grid item xs={12}>
-                                    {/* <ListItemText
-                              align={
-                                "left"
-                              }
-                            //   secondary={moment(msg.updatedAt).format(
-                                "h:mm:ss a"
-                              )}
-                            ></ListItemText> */}
-                                </Grid>
-                            </Grid>
-                        </ListItem>
-                        {/* );
-                  })} */}
-                    </List>
+                        {
+                            loading && <div className='text-center'><CircularProgress /></div>
+                        }
+                        {
+                            messageList && messageList.map((msg) => {
+                                return (
+                                    <ListItem key={msg.id} >
+                                        <Grid container>
+                                            <Grid item xs={12} style={{ marginBottom: '5px' }}>
+
+                                                <div className={currentUser == msg.recipientAddress || userId == msg.senderAddress
+                                                    ? "d-flex justify-content-start"
+                                                    : "d-flex justify-content-end"}>
+                                                    <Blockies seed={currentUser == msg.recipientAddress || userId == msg.senderAddress ? userId : currentUser} size={10} className="rounded-full" style={{ borderRadius: '50%' }} />
+                                                    <p style={{ border: '1px solid #eee', padding: '3px 15px', borderRadius: '20px', fontWeight: 'bolder' }}>
+                                                        {shortAddress(currentUser == msg.recipientAddress || userId == msg.senderAddress ? userId : currentUser)}
+                                                    </p>
+                                                </div>
+                                            </Grid>
+                                            <Grid item xs={12}>
+                                                <ListItemText
+                                                    className={currentUser == msg.recipientAddress || userId == msg.senderAddress
+                                                        ? classes.senderMsgBox
+                                                        : classes.recieveMsgBox
+                                                    }
+                                                    align={
+                                                        currentUser == msg.recipientAddress ||
+                                                            userId == msg.senderAddress
+                                                            ? "left"
+                                                            : "right"
+                                                    }
+                                                    primary={msg.content}
+                                                ></ListItemText>
+                                            </Grid>
+                                            <Grid item xs={12}>
+                                                <ListItemText
+                                                    align={
+                                                        currentUser == msg.recipientAddress ||
+                                                            userId == msg.senderAddress
+                                                            ? "left"
+                                                            : "right"
+                                                    }
+                                                    secondary={formatDate(msg.sent)}
+                                                ></ListItemText>
+                                            </Grid>
+                                        </Grid>
+                                    </ListItem>
+                                )
+                            })
+
+                        }
+                       <div ref={messagesEndRef} />
+                    </List >
                     <Divider />
                     <Grid container style={{ padding: "20px" }}>
                         <Grid item xs={11} align="left">
@@ -218,8 +282,10 @@ function ChatBox() {
                             />
                         </Grid>
                         <Grid xs={1} align="right">
-                            <Fab color="primary" aria-label="add">
-                                <Send />
+                            <Fab color="primary" aria-label="add" onClick={sendMessage}>
+                               {
+                                   updateMessage == true ? <CircularProgress color="inherit"/> : <Send />
+                               } 
                             </Fab>
                         </Grid>
                     </Grid>
